@@ -25,35 +25,18 @@ __webpack_require__.r(__webpack_exports__);
 
 const createLockfile = async (configuration, {
   cwd
-}) => {
+}, subWorkspaces) => {
   const {
     project,
     workspace
   } = await _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.Project.find(configuration, cwd);
   const cache = await _yarnpkg_core__WEBPACK_IMPORTED_MODULE_0__.Cache.find(configuration);
-  let requiredWorkspaces = new Set([workspace]); // First we compute the dependency chain to see what workspaces are
-  // dependencies of the one we're trying to focus on.
-  //
-  // Note: remember that new elements can be added in a set even while
-  // iterating over it (because they're added at the end)
-  // DISABLED:
-  // for (const workspace of requiredWorkspaces) {
-  //   for (const dependencyType of Manifest.hardDependencies) {
-  //     for (const descriptor of workspace.manifest
-  //       .getForScope(dependencyType)
-  //       .values()) {
-  //       const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
-  //       if (matchingWorkspace === null) continue;
-  //requiredWorkspaces.add(matchingWorkspace);
-  //     }
-  //   }
-  // }
-  // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
+  let requiredWorkspaces = [workspace, ...subWorkspaces]; // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
 
   for (let i = project.workspaces.length - 1; i >= 0; i--) {
     const currentWorkspace = project.workspaces[i];
 
-    if (!requiredWorkspaces.has(currentWorkspace)) {
+    if (!requiredWorkspaces.find(w => currentWorkspace.locator.identHash === w.locator.identHash)) {
       project.workspaces.splice(i, 1);
     }
   }
@@ -68,9 +51,16 @@ const createLockfile = async (configuration, {
 
     if (pkg === null || pkg === void 0 ? void 0 : pkg.reference.startsWith("workspace:")) {
       // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
-      if (w.cwd === cwd) {
-        pkg.reference = `workspace:.`;
-        Array.from(project.storedDescriptors.values()).find(v => v.identHash === pkg.identHash).range = `workspace:.`;
+      if (w.cwd.startsWith(cwd)) {
+        // e.g. For workspace "packages", we want to replace references as so:
+        //
+        //    "packages" === cwd            --> workspace:.
+        //    "packages/child-package"      --> workspace:child-package
+        //
+        // slice len +1 to include the slash, e.g. replace "packages/"
+        const newReference = `workspace:${w.cwd !== cwd ? w.cwd.slice(workspace.cwd.length + 1) : '.'}`;
+        pkg.reference = newReference;
+        Array.from(project.storedDescriptors.values()).find(v => v.identHash === pkg.identHash).range = newReference;
       }
     }
   }
@@ -89,10 +79,25 @@ const plugin = {
         stdout: process.stdout,
         includeLogs: true
       }, async report => {
-        for (const workspace of project.workspaces) {
-          const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, "yarn.lock-workspace");
-          await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace));
-          report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+        var _a;
+
+        const packageJson = await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.readJsonPromise(_yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(project.topLevelWorkspace.cwd, "package.json"));
+        const lockWorkspaces = packageJson.lockWorkspaces;
+        const lockRootFilename = (_a = packageJson.lockRootFilename) !== null && _a !== void 0 ? _a : "yarn.lock";
+
+        if (!lockWorkspaces) {
+          return;
+        }
+
+        for (const lockWorkspace of lockWorkspaces) {
+          const focusWorkspaces = project.workspaces.filter(w => w.locator.name === lockWorkspace);
+          const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(lockWorkspace));
+
+          for (const workspace of focusWorkspaces) {
+            const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, lockRootFilename);
+            await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace, targetWorkspaces));
+            report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+          }
         }
       });
     }

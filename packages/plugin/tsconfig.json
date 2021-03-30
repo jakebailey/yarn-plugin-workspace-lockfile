@@ -6,5 +6,6 @@
     "lib": ["es2018"],
     "esModuleInterop": true
   },
-  "include": ["sources/**/*.ts"]
+  "include": ["sources/**/*.ts"],
+  "exclude": ["node_modules", "bundles"]
 }

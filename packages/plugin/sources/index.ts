@@ -14,39 +14,18 @@ import { xfs, ppath, Filename } from "@yarnpkg/fslib";
 
 const createLockfile = async (
   configuration: Configuration,
-  { cwd }: Workspace
+  { cwd }: Workspace,
+  subWorkspaces: Workspace[]
 ) => {
   const { project, workspace } = await Project.find(configuration, cwd);
   const cache = await Cache.find(configuration);
 
-  let requiredWorkspaces: Set<Workspace> = new Set([workspace]);
-
-  // First we compute the dependency chain to see what workspaces are
-  // dependencies of the one we're trying to focus on.
-  //
-  // Note: remember that new elements can be added in a set even while
-  // iterating over it (because they're added at the end)
-
-  // DISABLED:
-
-  // for (const workspace of requiredWorkspaces) {
-  //   for (const dependencyType of Manifest.hardDependencies) {
-  //     for (const descriptor of workspace.manifest
-  //       .getForScope(dependencyType)
-  //       .values()) {
-  //       const matchingWorkspace = project.tryWorkspaceByDescriptor(descriptor);
-
-  //       if (matchingWorkspace === null) continue;
-
-  //requiredWorkspaces.add(matchingWorkspace);
-  //     }
-  //   }
-  // }
+  let requiredWorkspaces = [workspace, ...subWorkspaces]
 
   // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
   for (let i = project.workspaces.length - 1; i >= 0; i--) {
     const currentWorkspace = project.workspaces[i];
-    if (!requiredWorkspaces.has(currentWorkspace)) {
+    if (!requiredWorkspaces.find(w => currentWorkspace.locator.identHash === w.locator.identHash)) {
       project.workspaces.splice(i, 1);
     }
   }
@@ -62,12 +41,19 @@ const createLockfile = async (
     );
     if (pkg?.reference.startsWith("workspace:")) {
       // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
-      if (w.cwd === cwd) {
-        pkg.reference = `workspace:.`;
+      if (w.cwd.startsWith(cwd)) {
+        // e.g. For workspace "packages", we want to replace references as so:
+        //
+        //    "packages" === cwd            --> workspace:.
+        //    "packages/child-package"      --> workspace:child-package
+        //
+        // slice len +1 to include the slash, e.g. replace "packages/"
+        const newReference = `workspace:${w.cwd !== cwd ? w.cwd.slice(workspace.cwd.length + 1) : '.'}`
 
+        pkg.reference = newReference;
         Array.from(project.storedDescriptors.values()).find(
           (v) => v.identHash === pkg.identHash
-        ).range = `workspace:.`;
+        ).range = newReference;
       }
     }
   }
@@ -92,17 +78,30 @@ const plugin: Plugin<Hooks> = {
           includeLogs: true,
         },
         async (report: StreamReport) => {
-          for (const workspace of project.workspaces) {
-            const lockPath = ppath.join(
-              workspace.cwd,
-              "yarn.lock-workspace" as Filename
-            );
+          const packageJson = await xfs.readJsonPromise(ppath.join(project.topLevelWorkspace.cwd, "package.json" as Filename))
+          const lockWorkspaces = packageJson.lockWorkspaces
+          const lockRootFilename = packageJson.lockRootFilename ?? "yarn.lock"
 
-            await xfs.writeFilePromise(
-              lockPath,
-              await createLockfile(configuration, workspace)
-            );
-            report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+          if (!lockWorkspaces) {
+            return
+          }
+
+          for (const lockWorkspace of lockWorkspaces) {
+            const focusWorkspaces = project.workspaces.filter(w => w.locator.name === lockWorkspace)
+            const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(lockWorkspace))
+
+            for (const workspace of focusWorkspaces) {
+              const lockPath = ppath.join(
+                workspace.cwd,
+                lockRootFilename as Filename
+              );
+
+              await xfs.writeFilePromise(
+                lockPath,
+                await createLockfile(configuration, workspace, targetWorkspaces)
+              );
+              report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
+            }
           }
         }
       );

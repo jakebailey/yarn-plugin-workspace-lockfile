@@ -91,9 +91,9 @@ const plugin = {
 
         for (const lockWorkspace of lockWorkspaces) {
           const focusWorkspaces = project.workspaces.filter(w => w.locator.name === lockWorkspace);
-          const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(lockWorkspace));
 
           for (const workspace of focusWorkspaces) {
+            const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(workspace.relativeCwd));
             const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, lockRootFilename);
             await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace, targetWorkspaces));
             report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);

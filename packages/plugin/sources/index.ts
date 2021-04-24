@@ -88,9 +88,9 @@ const plugin: Plugin<Hooks> = {
 
           for (const lockWorkspace of lockWorkspaces) {
             const focusWorkspaces = project.workspaces.filter(w => w.locator.name === lockWorkspace)
-            const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(lockWorkspace))
 
             for (const workspace of focusWorkspaces) {
+              const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(workspace.relativeCwd))
               const lockPath = ppath.join(
                 workspace.cwd,
                 lockRootFilename as Filename

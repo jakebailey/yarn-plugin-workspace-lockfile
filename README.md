@@ -18,10 +18,16 @@
   instead of one for every child workspace also (we only need one lockfile for the
   whole public repo, not one for each individual workspace of that repo)
 
+
+## Changed from splitgraph
+
+- The splitgraph change assumed subpackages are stored in the workspace root, and broke
+  when packages were in a subfolder like `packages/`. Fixed here.
+
 ## Usage:
 
 ```
-yarn plugin import https://raw.githubusercontent.com/milesforks/yarn-plugin-workspace-lockfile/main/packages/plugin/bundles/%40yarnpkg/plugin-workspace-lockfile.js
+yarn plugin import https://raw.githubusercontent.com/jakebailey/yarn-plugin-workspace-lockfile/main/packages/plugin/bundles/%40yarnpkg/plugin-workspace-lockfile.js
 
 yarn install
 ```

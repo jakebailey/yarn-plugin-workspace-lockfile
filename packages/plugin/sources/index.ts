@@ -96,9 +96,18 @@ const plugin: Plugin<Hooks> = {
                 lockRootFilename as Filename
               );
 
+              let contents = await createLockfile(configuration, workspace, targetWorkspaces);
+
+              try {
+                const existing = await xfs.readFilePromise(lockPath, "utf8");
+                if (existing.indexOf('\r\n')) {
+                  contents = contents.replace(/\n/g, '\r\n')
+                }
+              } catch (e) {}
+
               await xfs.writeFilePromise(
                 lockPath,
-                await createLockfile(configuration, workspace, targetWorkspaces)
+                contents
               );
               report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
             }

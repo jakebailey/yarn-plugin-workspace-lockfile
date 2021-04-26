@@ -95,7 +95,17 @@ const plugin = {
           for (const workspace of focusWorkspaces) {
             const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(workspace.relativeCwd));
             const lockPath = _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.ppath.join(workspace.cwd, lockRootFilename);
-            await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, await createLockfile(configuration, workspace, targetWorkspaces));
+            let contents = await createLockfile(configuration, workspace, targetWorkspaces);
+
+            try {
+              const existing = await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.readFilePromise(lockPath, "utf8");
+
+              if (existing.indexOf('\r\n')) {
+                contents = contents.replace(/\n/g, '\r\n');
+              }
+            } catch (e) {}
+
+            await _yarnpkg_fslib__WEBPACK_IMPORTED_MODULE_2__.xfs.writeFilePromise(lockPath, contents);
             report.reportInfo(null, `${green(`✓`)} Wrote ${lockPath}`);
           }
         }

@@ -24,6 +24,7 @@
 - The splitgraph change assumed subpackages are stored in the workspace root, and broke
   when packages were in a subfolder like `packages/`. Fixed here.
 - If a lockfile is to be overwritten, ensure we replace it with a file with the same line endings.
+- If a lockfile is to be overwritten, skip writing if the file hasn't changed.
 
 ## Usage:
 

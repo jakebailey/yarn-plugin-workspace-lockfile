@@ -100,8 +100,12 @@ const plugin: Plugin<Hooks> = {
 
               try {
                 const existing = await xfs.readFilePromise(lockPath, "utf8");
-                if (existing.indexOf('\r\n')) {
+                if (existing.indexOf('\r\n') !== -1) {
                   contents = contents.replace(/\n/g, '\r\n')
+                }
+
+                if (existing === contents) {
+                  continue;
                 }
               } catch (e) {}
 

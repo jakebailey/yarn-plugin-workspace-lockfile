@@ -25,7 +25,7 @@ const createLockfile = async (
   // remove any workspace that isn't a dependency, iterate in reverse so we can splice it
   for (let i = project.workspaces.length - 1; i >= 0; i--) {
     const currentWorkspace = project.workspaces[i];
-    if (!requiredWorkspaces.find(w => currentWorkspace.locator.identHash === w.locator.identHash)) {
+    if (!requiredWorkspaces.find(w => currentWorkspace.anchoredLocator.identHash === w.anchoredLocator.identHash)) {
       project.workspaces.splice(i, 1);
     }
   }
@@ -37,7 +37,7 @@ const createLockfile = async (
 
   for (const w of project.workspaces) {
     const pkg = Array.from(project.originalPackages.values()).find(
-      (p) => p.identHash === w.locator.identHash
+      (p) => p.identHash === w.anchoredLocator.identHash
     );
     if (pkg?.reference.startsWith("workspace:")) {
       // ensure we replace the path in the lockfile from `workspace:packages/somepath` to `workspace:.`
@@ -87,7 +87,7 @@ const plugin: Plugin<Hooks> = {
           }
 
           for (const lockWorkspace of lockWorkspaces) {
-            const focusWorkspaces = project.workspaces.filter(w => w.locator.name === lockWorkspace)
+            const focusWorkspaces = project.workspaces.filter(w => w.anchoredLocator.name === lockWorkspace)
 
             for (const workspace of focusWorkspaces) {
               const targetWorkspaces = project.workspaces.filter(w => w.relativeCwd.startsWith(workspace.relativeCwd))

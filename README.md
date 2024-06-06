@@ -2,6 +2,17 @@
 
 **EXPERIMENTAL!**
 
+Forked by @RyanMartin-Carewell to fix for Yarn 4+
+
+Note that this plugin will generate `yarn.lock` files in each lockWorkspaces named workspace directory. These will
+interfere with Yarn 4 operations, as the node_module state file will not be found to match.
+
+The use case for this plugin is only to produce a yarn.lock file per workspace suitable for a deployment. The plugin
+would likely need to be removed and the per-workspace yarn.lock files cleaned up after such a deploy.
+
+TODO: remove references to lockRootFilename as this configuration is removed from Yarn 4
+TODO: additional work needed to convert from a plugin on afterAllInstalled to a custom command, e.g. deploy   
+
 ## Changed from upstream:
 
 - At Splitgraph, we have a private monorepo, which includes a nested, public
@@ -13,7 +24,7 @@
 - Specifically, add support for `lockWorkspaces` key of `package.json`. If this is set
   in the top level `package.json` e.g. `lockWorkspaces: ["splitgraph.com"]`, then the
   plugin will generate a single `yarn.lock` for each listed workspace
-  (to use another name, specify `lockRootFilename` in `package.json`)
+  ~~(to use another name, specify `lockRootFilename` in `package.json`)~~
 - Change the plugin so that it does not recurse, and only creates a single `yarn.lock`
   instead of one for every child workspace also (we only need one lockfile for the
   whole public repo, not one for each individual workspace of that repo)
@@ -40,4 +51,4 @@ This can be useful if you need to partition a big monorepo into smaller repos wh
 
 You can set-up git submodules in the root monorepo, so that each workspace directory is an individual git repository.
 
-Developers can then clone the repository they need to work on, and either rename `yarn.lock-workspace` to `yarn.lock` before installing, or they can create a `.yarnrc.yml` file that contains `lockfileFilename: yarn.lock-workspace`.
+~~Developers can then clone the repository they need to work on, and either rename `yarn.lock-workspace` to `yarn.lock` before installing, or they can create a `.yarnrc.yml` file that contains `lockfileFilename: yarn.lock-workspace`.~~
